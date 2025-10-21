@@ -28,7 +28,8 @@ def main():
             "flow": flow,
             "distance": distance,
         }
-        save_variables_to_file(write_to_file_vars, f"{args.name}.py")
+        filename = f"{args.folder}/{args.name}.py" if args.folder else f"{args.name}.py"
+        save_variables_to_file(write_to_file_vars, filename)
 
 def generate_instance_v1(args):
     N = args.size
@@ -133,6 +134,11 @@ def create_argparser() -> argparse.ArgumentParser:
                         dest="name", type=str, default=None,
                         help=("Name of the instance. Only if this is set, "
                               "the instance will be written do disk as python file")
+    )
+    # store in folder
+    parser.add_argument("--folder",
+                        dest="folder", type=str, default="instances",
+                        help=("Folder where the instance will be stored")
     )
     # version
     parser.add_argument("-v", "--version",
