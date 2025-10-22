@@ -3,7 +3,7 @@
 import argparse, os, sys
 import pkgutil
 from importlib import util, import_module
-from itertools import combinations, filterfalse, pairwise
+from itertools import product, filterfalse, pairwise
 
 from gurobipy import GRB
 
@@ -27,8 +27,9 @@ def main():
     instance_name = os.path.splitext(os.path.basename(args.instance_file))[0]
     print(args.instance_file, instance_name)
     instance = import_from_string(instance_name, args.instance_file)
-    remove_clone_facilities(instance)
-    exit()
+
+    if args.merge_clones:
+        remove_clone_facilities(instance)
 
     ##### solve
     objective_values = {}
@@ -37,14 +38,27 @@ def main():
 
 
     for model_name in models_to_run:
-        model, x = models[model_name].solve(
-            instance.facilities,
-            instance.locations,
-            instance.distance,
-            instance.flow,
-            False,
-            args.pool
-        )
+        if args.merge_clones:
+            model, x = models[model_name].solve_equiv(
+                instance.clone_facilities,
+                instance.locations,
+                instance.distance,
+                instance.clone_flow,
+                instance.equiv_class_sizes,
+                instance.equiv_classes,
+                args.output,
+                args.pool
+            )
+        else:
+            model, x = models[model_name].solve(
+                instance.facilities,
+                instance.locations,
+                instance.distance,
+                instance.flow,
+                args.output,
+                args.pool
+            )
+
 
         if model.Status != GRB.OPTIMAL:
             print(f"{model_name} model not optimal.")
@@ -54,7 +68,10 @@ def main():
                 instance.distance[loc1, loc2] *
                 round(x[loc1, f1].X) *
                 round(x[loc2, f2].X)
-                for (loc1, f1) in x.keys() for (loc2, f2) in x.keys()
+                for loc1 in instance.locations
+                for loc2 in instance.locations
+                for f1 in instance.facilities
+                for f2 in instance.facilities
             ])
             objective_values[model_name] = (model.ObjVal, true_obj)
             positions[model_name] = {f:loc for loc, f in x if round(x[loc, f].X) == 1}
@@ -80,6 +97,53 @@ def main():
             line += "✅"
         print(line)
 
+def remove_clone_facilities(instance):
+    # identify clone facilities
+    isClone = set()
+    equiv_classes = []
+    flow_in_equiv_class = {}
+    while len(isClone) < len(instance.facilities):
+        unclassified_facilities = list(filterfalse(lambda x: x in isClone, instance.facilities))
+        f = unclassified_facilities[0]
+        equiv_class = [f]
+        for g in unclassified_facilities:
+            if f == g: continue
+            if instance.flow[f, g] != instance.flow[g, f]: continue
+            equiv = True
+            for h in instance.facilities:
+                if h == f or h == g: continue
+                if instance.flow[f, h] != instance.flow[g, h]:
+                    equiv = False
+                    break
+                if instance.flow[h, f] != instance.flow[h, g]:
+                    equiv = False
+                    break
+            if equiv:
+                equiv_class.append(g)
+                isClone.add(g)
+
+        if len(equiv_class) > 1:
+            flow_in_equiv_class[f] = instance.flow[equiv_class[0], equiv_class[1]]
+        else:
+            flow_in_equiv_class[f] = 0
+        equiv_classes.append(list(equiv_class))
+        isClone.add(f)
+
+    print(f"From {len(instance.facilities)} facilities to {len(equiv_classes)} Eq. Classes")
+
+    # remove clone facilities and redefine flow matrix
+    facilities = [eq[0] for eq in equiv_classes]
+    equiv_class_sizes = {eq[0]:len(eq) for eq in equiv_classes}
+    flow = {(f1, f2):instance.flow[f1, f2] for f1, f2 in product(facilities, repeat=2)}
+    for f in facilities:
+        flow[f, f] = flow_in_equiv_class[f]
+
+    instance.clone_facilities = facilities
+    instance.clone_flow = flow
+    instance.equiv_class_sizes = equiv_class_sizes
+    instance.equiv_classes = equiv_classes
+
+
 # create argument parser
 def create_argparser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(description="Execute a QAP instance on different models")
@@ -100,35 +164,21 @@ def create_argparser() -> argparse.ArgumentParser:
                         dest="pool", type=int, default=1,
                         help=("Solution Pool Size for gurobi. Make this > 1 if you want to"
                               " make sure that you have an unique optimum"))
+
+    # merge equiv. classes ?
+    parser.add_argument("-c", "--merge-clones",
+                         dest="merge_clones", default=False,
+                         action='store_true',
+                         help=("Add flag if you want the model to merge clone facilities in the instance"))
+
+    # output for each indivial model ?
+    parser.add_argument("--output",
+                         dest="output", default=False,
+                         action='store_true',
+                         help=("Add flag if you want the models to print their solution if optimal"))
+
     return parser
 
-def remove_clone_facilities(instance):
-    isClone = set()
-    equiv_classes = []
-    while len(isClone) < len(instance.facilities):
-        unclassified_facilities = list(filterfalse(lambda x: x in isClone, instance.facilities))
-        f = unclassified_facilities[0]
-        equiv_class = set([f])
-        for g in unclassified_facilities:
-            if f == g: continue
-            if instance.flow[f, g] != instance.flow[g, f]: continue
-            equiv = True
-            for h in instance.facilities:
-                if h == f or h == g: continue
-                if instance.flow[f, h] != instance.flow[g, h]:
-                    equiv = False
-                    break
-                if instance.flow[h, f] != instance.flow[h, g]:
-                    equiv = False
-                    break
-            if equiv:
-                equiv_class.add(g)
-                isClone.add(g)
-
-        equiv_classes.append(list(equiv_class))
-        isClone.add(f)
-
-    print(f"From {len(instance.facilities)} facilities to {len(equiv_classes)} Eq. Classes")
 
 
 
