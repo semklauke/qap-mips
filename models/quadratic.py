@@ -99,45 +99,38 @@ def solve_equiv(
 
     model._additional_time = model.Runtime
 
-    # fix current model and get rid of constraints
-    fix_constr = {}
-    for l, f in x:
-        fix_value = round(x[l, f].X)
-        fix_constr[l, f] = model.addConstr(x[l, f] == fix_value)
+    # fix current model and get rid of vars + constr that are not needed for solution
+    for v in model.getVars():
+        if v.VarName.startswith("x_"):
+            fix_value = round(v.X)
+            v.LB = fix_value
+            v.UB = fix_value
+        else:
+            model.remove(v)
 
-    print(f"Num Vars: {len(model.getVars())}")
+    model.remove(c1)
+    model.remove(c2)
 
-    eq_locations_list = [[l for l in locations if round(x[l, eq[0]].X) == 1] for eq in equiv_classes]
-
-    for i, eq in enumerate(equiv_classes):
-        eq_locations = eq_locations_list[i]
+    for eq in equiv_classes:
+        eq_locations = [l for l in locations if round(x[l, eq[0]].X) == 1]
         for f_new, l_new in zip(eq[1:], eq_locations[1:]):
-            print("1")
             # clear clone varible
-            model.remove(fix_constr[l_new, eq[0]])
-            fix_constr[l_new, eq[0]] = model.addConstr(x[l_new, eq[0]] == 0)
+            x[l_new, eq[0]].LB = 0
+            x[l_new, eq[0]].UB = 0
             # create new variable for new facility in equiv class
             for l in locations:
                 if l != l_new:
-                    x[l, f_new] = model.addVar(vtype=GRB.BINARY, name=f"x_{l}_{f_new}")
-                    fix_constr[l, f_new] = model.addConstr(x[l, f_new] == 0)
+                    x[l, f_new] = model.addVar(vtype=GRB.BINARY, lb=0, ub=0, name=f"x_{l}_{f_new}")
                 else:
-                    x[l, f_new] = model.addVar(vtype=GRB.BINARY, name=f"x_{l}_{f_new}")
-                    fix_constr[l, f_new] = model.addConstr(x[l, f_new] == 1)
+                    x[l, f_new] = model.addVar(vtype=GRB.BINARY, lb=1, ub=1, name=f"x_{l}_{f_new}")
 
-        model.remove(fix_constr[eq_locations[0], eq[0]])
-        fix_constr[eq_locations[0], eq[0]] = model.addConstr(x[eq_locations[0], eq[0]] == 1)
+        x[eq_locations[0], eq[0]].LB = 1
+        x[eq_locations[0], eq[0]].UB = 1
 
+    # reoptimize
     model.setParam('DualReductions', 0)
     model.update()
-    print(f"Num Vars: {len(model.getVars())}")
-    # reoptimize
-    model.remove(c1)
-    model.remove(c2)
     model.setObjective(0)
-    model.update()
-
-    model.write("model.lp")
     model.optimize()
 
     if output and model.Status == GRB.OPTIMAL:
@@ -146,9 +139,5 @@ def solve_equiv(
                 print(f"{v.VarName} {v.X:g}")
 
         print(f"Obj: {model.ObjVal:g}")
-
-    if model.Status != GRB.OPTIMAL:
-        model.computeIIS()
-        model.write('iismodel2.ilp')
 
     return model, x
