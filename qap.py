@@ -36,7 +36,7 @@ def main():
     objective_values = {}
     positions = {}
     runtimes = {}
-
+    statuses = {}
 
     for model_name in models_to_run:
         if args.merge_clones:
@@ -48,7 +48,8 @@ def main():
                 instance.equiv_class_sizes,
                 instance.equiv_classes,
                 args.output,
-                args.pool
+                args.pool,
+                args.timelimit,
             )
         else:
             model, x = models[model_name].solve(
@@ -57,9 +58,11 @@ def main():
                 instance.distance,
                 instance.flow,
                 args.output,
-                args.pool
+                args.pool,
+                args.timelimit
             )
 
+        statuses[model_name] = model.Status
 
         if model.Status != GRB.OPTIMAL:
             print(f"{model_name} model not optimal.")
@@ -79,12 +82,17 @@ def main():
             runtimes[model_name] = round(model.Runtime, ndigits=2)
             if hasattr(model, '_additional_time'):
                  runtimes[model_name] += round(model._additional_time, ndigits=2)
+        
+        del model
 
-
-    print("="*50)
+    print("="*70 + "\n" + "="*70)
     print("Obj. Value:")
     for model_name, v in objective_values.items():
-        print(f"  {model_name}: {v[1]} ({v[0]})")
+        status = get_model_status(statuses[model_name])
+        print(f"  {model_name}: {v[1]} ({status} with {v[0]})")
+    for model_name, v in statuses.items():
+        if v != GRB.OPTIMAL:
+            print(f"  {model_name}: {get_model_status(v)}")
     print("Runtime (s):")
     for model_name, v in runtimes.items():
         print(f"  {model_name}: {v}s")
@@ -165,23 +173,30 @@ def create_argparser() -> argparse.ArgumentParser:
     # How many solutions should be generatet by gurobi
     parser.add_argument("-p", "--pool",
                         dest="pool", type=int, default=1,
-                        help=("Solution Pool Size for gurobi. Make this > 1 if you want to"
-                              " make sure that you have an unique optimum"))
+                        help=("Solution Pool Size for gurobi. Make this > 1 if "
+                              "you want to make sure that you have an unique optimum"))
 
     # merge equiv. classes ?
     parser.add_argument("-c", "--merge-clones",
                          dest="merge_clones", default=False,
                          action='store_true',
-                         help=("Add flag if you want the model to merge clone facilities in the instance"))
+                         help=("Add flag if you want the model to merge clone "
+                               "facilities in the instance"))
 
     # output for each indivial model ?
     parser.add_argument("--output",
                          dest="output", default=False,
                          action='store_true',
-                         help=("Add flag if you want the models to print their solution if optimal"))
+                         help=("Add flag if you want the models to print"
+                               " their solution if optimal"))
+    
+    # Timelimiet for
+    parser.add_argument("-t", "--time-limit",
+                        dest="timelimit", type=int, default=-1,
+                        help=("Time limit for each model in seconds. (-1 for no limit)"))
+
 
     return parser
-
 
 
 
@@ -193,6 +208,33 @@ def import_from_string(module_name, source_code):
     spec.loader.exec_module(module) # pyright: ignore
     sys.modules[spec.name] = module
     return module
+
+# from model status to string
+def get_model_status(status):
+    if status == GRB.OPTIMAL:
+        return "OPTIMAL"
+    elif status == GRB.INFEASIBLE:
+        return "INFEASIBLE"
+    elif status == GRB.UNBOUNDED:
+        return "UNBOUNDED"
+    elif status == GRB.INTERRUPTED:
+        return "INTERRUPTED"
+    elif status == GRB.INF_OR_UNBD:
+        return "INF_OR_UNBD"
+    elif status == GRB.SUBOPTIMAL:
+        return "SUBOPTIMAL"
+    elif status == GRB.TIME_LIMIT:
+        return "TIME LIMIT reached."
+    elif status == GRB.WORK_LIMIT:
+        return "WORK LIMIT reached."
+    elif status == GRB.ITERATION_LIMIT:
+        return "ITERATION LIMIT reached."
+    elif status == GRB.MEM_LIMIT:
+        return "MEM LIMIT reached."
+    elif status == GRB.CUTOFF:
+        return "CUTOFF"    
+    else:
+        return f"Unknown status code: {status}"
 
 if __name__ == '__main__':
     main()

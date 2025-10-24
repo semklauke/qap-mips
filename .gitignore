@@ -1,6 +1,6 @@
 ### Project specific
 instances/
-
+out*/*
 ### Windows ###
 # Windows thumbnail cache files
 Thumbs.db

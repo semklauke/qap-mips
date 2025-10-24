@@ -11,13 +11,16 @@ def solve(
     distance,
     flow,
     output=False,
-    pool=1
+    pool=1,
+    timelimit=-1
 ):
     # QAP Model
     model = gp.Model("qap-zhang")
     # search for multiple solutions ? (if we want to make sure the is ONE optimal solution)
     model.setParam('PoolSearchMode', 2 if pool > 1 else 0)
     model.setParam('PoolSolutions', pool)
+    # add timelimit for the solver
+    timelimit > 0 and model.setParam('TimeLimit', timelimit)
 
     # LAP model
     model_lap_max = gp.Model("lap_max")

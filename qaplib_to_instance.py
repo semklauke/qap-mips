@@ -51,7 +51,9 @@ def save_variables_to_file(variables, filename):
         for var_name, var_value in variables.items():
             if isinstance(var_value, str):
                 f.write(f'{var_name} = "{var_value}"\n')
-            elif isinstance(var_value, list) or isinstance(var_value, dict):
+            elif isinstance(var_value, list):
+                f.write(f'{var_name} = {var_value}\n')
+            elif isinstance(var_value, dict):
                 # Use pprint to format lists and dictionaries
                 f.write(f'{var_name} = ')
                 f.write(pprint.pformat(var_value, indent=4))

@@ -9,12 +9,15 @@ def solve(
     distance,
     flow,
     output=False,
-    pool=1
+    pool=1,
+    timelimit=-1
 ):
     model = gp.Model("qap-linearv1")
     # search for multiple solutions ? (if we want to make sure the is ONE optimal solution)
     model.setParam('PoolSearchMode', 2 if pool > 1 else 0)
     model.setParam('PoolSolutions', pool)
+    # add timelimit for the solver
+    timelimit > 0 and model.setParam('TimeLimit', timelimit)
 
     x = {} # x[loc, f] == 1 iff. facility `f` is placed on location `loc`
     for loc in locations:
@@ -65,13 +68,16 @@ def solve_equiv(
     equiv_class_sizes,
     equiv_classes,
     output=False,
-    pool=1
+    pool=1,
+    timelimit=-1
 ):
     model = gp.Model("qap-linearv1")
     # search for multiple solutions ? (if we want to make sure the is ONE optimal solution)
     model.setParam('PoolSearchMode', 2 if pool > 1 else 0)
     model.setParam('PoolSolutions', pool)
-
+    # add timelimit for the solver
+    timelimit > 0 and model.setParam('TimeLimit', timelimit)
+    
     x: dict[Any, gp.Var] = {} # x[loc, f] == 1 iff. facility `f` is placed on location `loc`
     for loc in locations:
         for f in facilities:

@@ -10,13 +10,16 @@ def solve(
     distance,
     flow,
     output=False,
-    pool=1
+    pool=1,
+    timelimit=-1,
 ):
     # QAP Model
     model = gp.Model("qap-fischetti")
-    # search for multiple solutions ? (if we want to make sure the is ONE optimal solution)
+    # search for multiple solutions ? (if we want to make sure there is ONE optimal solution)
     model.setParam('PoolSearchMode', 2 if pool > 1 else 0)
     model.setParam('PoolSolutions', pool)
+    # add timelimit for the solver
+    timelimit > 0 and model.setParam('TimeLimit', timelimit)
 
     # LAP model
     model_lap = gp.Model("lap")
@@ -165,14 +168,17 @@ def solve_equiv(
     equiv_class_sizes,
     equiv_classes,
     output=False,
-    pool=1
+    pool=1,
+    timelimit=-1
 ):
     # QAP Model
     model = gp.Model("qap-fischettiv2")
     # search for multiple solutions ? (if we want to make sure the is ONE optimal solution)
     model.setParam('PoolSearchMode', 2 if pool > 1 else 0)
     model.setParam('PoolSolutions', pool)
-
+    # add timelimit for the solver
+    timelimit > 0 and model.setParam('TimeLimit', timelimit)
+    
     # LAP model
     model_lap = gp.Model("lap")
     model_lap.setParam('LogToConsole', 0)
