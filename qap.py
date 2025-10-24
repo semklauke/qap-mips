@@ -29,7 +29,8 @@ def main():
     instance = import_from_string(instance_name, args.instance_file)
 
     if args.merge_clones:
-        remove_clone_facilities(instance)
+        diff = remove_clone_facilities(instance)
+        if diff <= 0: exit(1)
 
     ##### solve
     objective_values = {}
@@ -142,6 +143,8 @@ def remove_clone_facilities(instance):
     instance.clone_flow = flow
     instance.equiv_class_sizes = equiv_class_sizes
     instance.equiv_classes = equiv_classes
+
+    return len(instance.facilities) - len(equiv_classes)
 
 
 # create argument parser
