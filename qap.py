@@ -47,9 +47,7 @@ def main():
                 instance.clone_flow,
                 instance.equiv_class_sizes,
                 instance.equiv_classes,
-                args.output,
-                args.pool,
-                args.timelimit,
+                args
             )
         else:
             model, x = models[model_name].solve(
@@ -57,9 +55,7 @@ def main():
                 instance.locations,
                 instance.distance,
                 instance.flow,
-                args.output,
-                args.pool,
-                args.timelimit
+                args
             )
 
         statuses[model_name] = model.Status
@@ -194,6 +190,11 @@ def create_argparser() -> argparse.ArgumentParser:
     parser.add_argument("-t", "--time-limit",
                         dest="timelimit", type=int, default=-1,
                         help=("Time limit for each model in seconds. (-1 for no limit)"))
+
+    # Number of threads gurobi uses
+    parser.add_argument("-n", "--num-threads",
+                        dest="num_threads", type=int, default=0,
+                        help=("How many threads does gurobi use? (0 = automatic)"))
 
 
     return parser

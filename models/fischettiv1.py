@@ -9,17 +9,18 @@ def solve(
     locations,
     distance,
     flow,
-    output=False,
-    pool=1,
-    timelimit=-1,
+    settings
 ):
     # QAP Model
     model = gp.Model("qap-fischetti")
-    # search for multiple solutions ? (if we want to make sure there is ONE optimal solution)
-    model.setParam('PoolSearchMode', 2 if pool > 1 else 0)
-    model.setParam('PoolSolutions', pool)
+    # search for multiple solutions ? (if we want to make sure there is only ONE optimal solution)
+    model.setParam('PoolSearchMode', 2 if settings.pool > 1 else 0)
+    model.setParam('PoolSolutions', settings.pool)
+    model.setParam('Threads', settings.num_threads)
     # add timelimit for the solver
-    timelimit > 0 and model.setParam('TimeLimit', timelimit)
+    if settings.timelimit > 0:
+        model.setParam('TimeLimit', settings.timelimit)
+
 
     # LAP model
     model_lap = gp.Model("lap")
@@ -94,7 +95,7 @@ def solve(
     # Optimize model
     model.optimize()
 
-    if output and model.Status == GRB.OPTIMAL:
+    if settings.output and model.Status == GRB.OPTIMAL:
         for v in model.getVars():
             if int(v.X) == 1 and 'x_' in v.VarName:
                 print(f"{v.VarName} {v.X:g}")
@@ -167,17 +168,17 @@ def solve_equiv(
     flow,
     equiv_class_sizes,
     equiv_classes,
-    output=False,
-    pool=1,
-    timelimit=-1
+    settings
 ):
     # QAP Model
     model = gp.Model("qap-fischettiv2")
-    # search for multiple solutions ? (if we want to make sure the is ONE optimal solution)
-    model.setParam('PoolSearchMode', 2 if pool > 1 else 0)
-    model.setParam('PoolSolutions', pool)
+    # search for multiple solutions ? (if we want to make sure there is only ONE optimal solution)
+    model.setParam('PoolSearchMode', 2 if settings.pool > 1 else 0)
+    model.setParam('PoolSolutions', settings.pool)
+    model.setParam('Threads', settings.num_threads)
     # add timelimit for the solver
-    timelimit > 0 and model.setParam('TimeLimit', timelimit)
+    if settings.timelimit > 0:
+        model.setParam('TimeLimit', settings.timelimit)
     
     # LAP model
     model_lap = gp.Model("lap")
@@ -242,7 +243,7 @@ def solve_equiv(
     # Optimize model
     model.optimize()
 
-    if output and model.Status == GRB.OPTIMAL:
+    if settings.output and model.Status == GRB.OPTIMAL:
         for v in model.getVars():
             if int(v.X) == 1 and 'x_' in v.VarName:
                 print(f"{v.VarName} {v.X:g}")
@@ -293,7 +294,7 @@ def solve_equiv(
     model.setObjective(0)
     model.optimize()
 
-    if output and model.Status == GRB.OPTIMAL:
+    if settings.output and model.Status == GRB.OPTIMAL:
         for v in model.getVars():
             if int(v.X) == 1 and 'x_' in v.VarName:
                 print(f"{v.VarName} {v.X:g}")
